@@ -67,7 +67,14 @@ namespace MyGui
             "logoutOfControlPlane",
             "getTerminalContents",
             "showToast",
-            "openUrl"
+            "openUrl",
+            "history/list",
+            "docs/initStatuses",
+            "context/loadSubmenuItems",
+            "didChangeSelectedProfile",
+            "llm/streamChat",
+            "abort",
+            "config/openProfile"
         };
 
             /// <summary>
@@ -178,6 +185,8 @@ namespace MyGui
                     var response = new string[] { };
                     SendResponseToCore(message.MessageType, response, message.MessageId);
                 };
+
+                
 
                 // Получение текущего файла
                 _messageTypeHandlers["getCurrentFile"] = (message) =>
@@ -366,6 +375,12 @@ namespace MyGui
                     // Здесь нужно показать уведомление в VS
                     SendResponseToCore(message.MessageType, true, message.MessageId);
                 };
+
+                
+                _messageTypeHandlers["llm/streamChat"] = (message) =>
+                {
+                    SendResponseToCore(message.MessageType, true, message.MessageId);
+                };
             }
 
             /// <summary>
@@ -547,6 +562,8 @@ namespace MyGui
 
                     // Сериализуем сообщение в JSON
                     var json = JsonConvert.SerializeObject(message);
+
+                    Debug.WriteLine($"Sent message to JsonConvert: {json}");
 
                     // Отправляем сообщение в Core
                     _tcpWriter.WriteLine(json);

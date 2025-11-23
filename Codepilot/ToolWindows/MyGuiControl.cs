@@ -1,14 +1,15 @@
 ﻿
+using EnvDTE;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Windows.Controls;
 using UiCodePilot.UI;
-using EnvDTE;
 
 namespace MyGui
 {
@@ -84,6 +85,21 @@ namespace MyGui
                             messageId: messageId
                         });
                     };
+
+                    // Добавляем обработчик для приема сообщений от VS2022
+                    window.chrome.webview.addEventListener('message', event => {
+                        const message = event.data;
+                        console.log('Received message from VS2022:', message);
+                        
+                        // Проверяем, есть ли у нас глобальный обработчик сообщений
+                        if (window.handleVS2022Message) {
+                            window.handleVS2022Message(message);
+                        } else {
+                            // Если глобального обработчика нет, создаем событие
+                            const customEvent = new CustomEvent('vs2022message', { detail: message });
+                            window.postMessage(event.data);
+                        }
+                    });
 
                     // Устанавливаем флаг IDE
                     localStorage.setItem('ide', 'vs2022');
@@ -166,10 +182,73 @@ namespace MyGui
                 case "getOpenFiles":
                     HandleGetOpenFiles(message);
                     break;
+                case "history/list":
+                case "docs/initStatuses":
+                case "context/loadSubmenuItems":
+                case "didChangeSelectedProfile":
+                case "llm/streamChat":
+                case "abort":
+                    HandleGuiMessage(message);
+                    break;
+                case "getWorkspaceDirs":
+                    HandleWorkspaceDirsMessage(message);
+                    break;
                 default:
                     // Для других типов сообщений можно добавить соответствующую обработку
                     System.Diagnostics.Debug.WriteLine($"Received message of type: {message.MessageType}");
                     break;
+            }
+        }
+
+        private async void HandleWorkspaceDirsMessage(Message message)
+        {
+            try
+            {
+                if (_coreMessenger != null)
+                {
+                    Debug.WriteLine($"HandleWorkspaceDirsMessage: {message.MessageType}");
+                    
+                    var response = new string[] { Directory.GetCurrentDirectory() };
+                    SendToWebview(message.MessageType, response, message.MessageId);
+                }
+                else
+                {
+                    // Если Core не инициализирован, отправляем ошибку
+                    Debug.WriteLine($"Core not initialized for message: {message.MessageType}");
+                    SendToWebview(message.MessageType, new { error = "Core not initialized" }, message.MessageId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling {message.MessageType}: {ex.Message}");
+                SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
+            }
+        }
+
+        private async void HandleGuiMessage(Message message)
+        {
+            try
+            {
+                if (_coreMessenger != null)
+                {
+                    Debug.WriteLine($"HandleGuiMessage: {message.MessageType}");
+                    // Перенаправляем запрос в Core
+                    var result = await _coreMessenger.RequestFromCore(message.MessageType, message.Data);
+
+                    // Отправляем ответ
+                    SendToWebview(message.MessageType, result, message.MessageId);
+                }
+                else
+                {
+                    // Если Core не инициализирован, отправляем ошибку
+                    Debug.WriteLine($"Core not initialized for message: {message.MessageType}");
+                    SendToWebview(message.MessageType, new { error = "Core not initialized" }, message.MessageId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling {message.MessageType}: {ex.Message}");
+                SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
             }
         }
 
