@@ -10,6 +10,7 @@ using System.IO;
 using System.Threading;
 using System.Windows.Controls;
 using UiCodePilot.UI;
+using static MyGui.MyGuiControl;
 
 namespace MyGui
 {
@@ -138,8 +139,6 @@ namespace MyGui
                 var json = e.WebMessageAsJson;
                 var message = JsonConvert.DeserializeObject<Message>(json);
 
-                Debug.WriteLine($"OnWebMessageReceived {message}");
-
                 if (message == null)
                     return;
 
@@ -170,24 +169,72 @@ namespace MyGui
                 case "getIdeSettings":
                     HandleGetIdeSettings(message);
                     break;
-                case "config/listProfiles":
-                    HandleListProfiles(message);
-                    break;
-                case "config/openProfile":
-                    HandleOpenProfile(message);
-                    break;
-                case "config/getSerializedProfileInfo":
-                    HandleGetSerializedProfileInfo(message);
-                    break;
+                //case "config/listProfiles":
+                //    HandleListProfiles(message);
+                //    break;
+                //case "config/openProfile":
+                //    HandleOpenProfile(message);
+                //    break;
+                //case "config/getSerializedProfileInfo":
+                //    HandleGetSerializedProfileInfo(message);
+                //    break;
                 case "getOpenFiles":
                     HandleGetOpenFiles(message);
                     break;
-                case "history/list":
-                case "docs/initStatuses":
-                case "context/loadSubmenuItems":
-                case "didChangeSelectedProfile":
-                case "llm/streamChat":
+                // напрямую перенаправляем в кор
                 case "abort":
+                case "history/list":
+                case "history/delete":
+                case "history/load":
+                case "history/save":
+                case "devdata/log":
+                case "config/addModel":
+                case "config/newPromptFile":
+                case "config/ideSettingsUpdate":
+                case "config/getSerializedProfileInfo":
+                case "config/deleteModel":
+                case "config/listProfiles":
+                case "config/refreshProfiles":
+                case "config/openProfile":
+                case "config/updateSharedConfig":
+                case "config/updateSelectedModel":
+                case "mcp/reloadServer":
+                case "context/getContextItems":
+                case "context/getSymbolsForFiles":
+                case "context/loadSubmenuItems":
+                case "context/addDocs":
+                case "context/removeDocs":
+                case "context/indexDocs":
+                case "autocomplete/complete":
+                case "autocomplete/cancel":
+                case "autocomplete/accept":
+                case "tts/kill":
+                case "llm/complete":
+                case "llm/streamChat":
+                case "llm/listModels":
+                case "streamDiffLines":
+                case "chatDescriber/describe":
+                case "stats/getTokensPerDay":
+                case "stats/getTokensPerModel":
+                // Codebase
+                case "index/setPaused":
+                case "index/forceReIndex":
+                case "index/forceReIndexFiles":
+                case "index/indexingProgressBarInitialized":
+                // Docs: etc.
+                case "indexing/reindex":
+                case "indexing/abort":
+                case "indexing/setPaused":
+                case "docs/initStatuses":
+                case "docs/getDetails":
+                //
+                case "completeOnboarding":
+                case "addAutocompleteModel":
+                case "didChangeSelectedProfile":
+                case "didChangeSelectedOrg":
+                case "tools/call":
+                case "controlPlane/openUrl":
+                case "controlPlane/listOrganizations":
                     HandleGuiMessage(message);
                     break;
                 case "getWorkspaceDirs":
@@ -225,12 +272,55 @@ namespace MyGui
             }
         }
 
+        /// <summary>
+        /// Обработка сообщений от GUI
+        /// </summary>
+        /// <param name="message">Сообщение</param>
+        private void HandleGuiMessageWithCb(Message message)
+        {
+            if (_coreMessenger != null)
+            {
+                Debug.WriteLine($"HandleGuiMessage: {message.MessageType}");
+                
+                // Используем RequestWithCallback для асинхронной обработки
+                _coreMessenger.RequestWithCallback(
+                    message.MessageType, 
+                    message.Data, 
+                    message.MessageId,
+                    (result) => {
+                        // Колбек, который будет вызван при получении ответа
+                        try
+                        {
+                            // Отправляем ответ в WebView
+                            SendToWebview(message.MessageType, result, message.MessageId);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error in callback for {message.MessageType}: {ex.Message}");
+                            SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
+                        }
+                    });
+            }
+            else
+            {
+                // Если Core не инициализирован, отправляем ошибку
+                Debug.WriteLine($"Core not initialized for message: {message.MessageType}");
+                SendToWebview(message.MessageType, new { error = "Core not initialized" }, message.MessageId);
+            }
+        }
+
+        //async respond(object data)
+        //{
+        //    SendToWebview(message.MessageType, result, message.MessageId)
+        //}
+
         private async void HandleGuiMessage(Message message)
         {
             try
             {
                 if (_coreMessenger != null)
                 {
+
                     Debug.WriteLine($"HandleGuiMessage: {message.MessageType}");
                     // Перенаправляем запрос в Core
                     var result = await _coreMessenger.RequestFromCore(message.MessageType, message.Data);

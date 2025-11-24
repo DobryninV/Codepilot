@@ -23,6 +23,7 @@ namespace MyGui
             private Dictionary<string, TaskCompletionSource<object>> _pendingRequests = new Dictionary<string, TaskCompletionSource<object>>();
             private Dictionary<string, Action<Message>> _messageTypeHandlers = new Dictionary<string, Action<Message>>();
             private object _configCache;
+            private Dictionary<string, Action<object>> _pendingCallbacks = new Dictionary<string, Action<object>>();
 
             /// <summary>
             /// Список типов сообщений, которые могут приходить от Core к IDE
@@ -186,10 +187,58 @@ namespace MyGui
                     SendResponseToCore(message.MessageType, response, message.MessageId);
                 };
 
-                
+                // Открытие файла
+                _messageTypeHandlers["openFile"] = (message) => {
+                    try
+                    {
+                        // Получаем путь к файлу из данных сообщения
+                        string path;
+                        if (message.Data is Newtonsoft.Json.Linq.JObject jObject && jObject["path"] != null)
+                        {
+                            path = jObject["path"].ToString();
+                        }
+                        else
+                        {
+                            path = message.Data.ToString();
+                        }
+                        string filePath = path.Replace("file:///", "");// "D:/Prog/CodePilotVS/extensions/.continue-debug/config.yaml";
 
-                // Получение текущего файла
-                _messageTypeHandlers["getCurrentFile"] = (message) =>
+                        if (string.IsNullOrEmpty(filePath))
+                        {
+                            SendErrorToCore(message.MessageType, "File path is empty", message.MessageId);
+                            return;
+                        }
+
+                        // Проверяем существование файла
+                        if (!File.Exists(filePath))
+                        {
+                            SendErrorToCore(message.MessageType, $"File not found: {filePath}", message.MessageId);
+                            return;
+                        }
+
+                        // Получаем DTE (Development Tools Environment)
+                        var dte = Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                        if (dte == null)
+                        {
+                            SendErrorToCore(message.MessageType, "Failed to get DTE service", message.MessageId);
+                            return;
+                        }
+
+                        // Открываем файл
+                        dte.ItemOperations.OpenFile(filePath);
+
+                        // Отправляем успешный ответ
+                        SendResponseToCore(message.MessageType, true, message.MessageId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error opening file: {ex.Message}");
+                        SendErrorToCore(message.MessageType, ex.Message, message.MessageId);
+                    }
+                };
+
+            // Получение текущего файла
+            _messageTypeHandlers["getCurrentFile"] = (message) =>
                 {
                     // Здесь нужно получить информацию о текущем открытом файле
                     // Для примера возвращаем пустой объект
@@ -377,10 +426,10 @@ namespace MyGui
                 };
 
                 
-                _messageTypeHandlers["llm/streamChat"] = (message) =>
-                {
-                    SendResponseToCore(message.MessageType, true, message.MessageId);
-                };
+                //_messageTypeHandlers["llm/streamChat"] = (message) =>
+                //{
+                //    SendResponseToCore(message.MessageType, true, message.MessageId);
+                //};
             }
 
             /// <summary>
@@ -510,6 +559,13 @@ namespace MyGui
                         tcs.SetResult(message.Data);
                         _pendingRequests.Remove(message.MessageId);
                     }
+                    // Если есть ожидающий колбек, вызываем его
+                    else if (_pendingCallbacks.TryGetValue(message.MessageId, out var callback))
+                    {
+                        Debug.WriteLine($"message.MessageId {message.MessageId}");
+                        callback(message.Data);
+                        _pendingCallbacks.Remove(message.MessageId);
+                    }
                     else
                     {
                         // Если есть обработчик для данного типа сообщения, вызываем его
@@ -623,6 +679,47 @@ namespace MyGui
                     status = "error"
                 };
                 SendToCore(messageType, response, messageId);
+            }
+
+            /// <summary>
+            /// Отправка запроса в Core с колбеком
+            /// </summary>
+            /// <param name="messageType">Тип сообщения</param>
+            /// <param name="data">Данные сообщения</param>
+            /// <param name="messageId">Идентификатор сообщения (опционально)</param>
+            /// <param name="callback">Функция обратного вызова для обработки ответа</param>
+            public void RequestWithCallback(string messageType, object data, string messageId, Action<object> callback)
+            {
+                if (!_isConnected)
+                {
+                    // Пробуем переподключиться
+                    ConnectToCore();
+                    if (!_isConnected)
+                    {
+                        Debug.WriteLine("Not connected to Core");
+                        callback(new { error = "Not connected to Core" });
+                        return;
+                    }
+                }
+
+                // Если messageId не указан, генерируем новый
+                string actualMessageId = messageId ?? Guid.NewGuid().ToString();
+
+                // Сохраняем колбек
+                _pendingCallbacks[actualMessageId] = callback;
+
+                try
+                {
+                    // Отправляем сообщение в Core
+                    SendToCore(messageType, data, actualMessageId);
+                }
+                catch (Exception ex)
+                {
+                    // В случае ошибки удаляем колбек и вызываем его с ошибкой
+                    _pendingCallbacks.Remove(actualMessageId);
+                    Debug.WriteLine($"Error sending message to Core: {ex.Message}");
+                    callback(new { error = ex.Message });
+                }
             }
 
             /// <summary>
