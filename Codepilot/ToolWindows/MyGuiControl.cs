@@ -235,7 +235,7 @@ namespace MyGui
                 case "tools/call":
                 case "controlPlane/openUrl":
                 case "controlPlane/listOrganizations":
-                    HandleGuiMessage(message);
+                    HandleGuiMessageWithCb(message);
                     break;
                 case "getWorkspaceDirs":
                     HandleWorkspaceDirsMessage(message);
@@ -291,13 +291,28 @@ namespace MyGui
                         // Колбек, который будет вызван при получении ответа
                         try
                         {
-                            // Отправляем ответ в WebView
-                            SendToWebview(message.MessageType, result, message.MessageId);
+                            this.Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                try
+                                {
+                                    Debug.WriteLine($"Send CB ToWebview {message.MessageType} {message.MessageId}");
+                                    // Отправляем ответ в WebView
+                                    SendToWebview(message.MessageType, result, message.MessageId);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"Error in UI Thread {ex.Message}");
+                                    SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
+                                }
+                            }));
                         }
                         catch (Exception ex)
                         {
                             Debug.WriteLine($"Error in callback for {message.MessageType}: {ex.Message}");
-                            SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
+                            this.Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
+                            }));
                         }
                     });
             }
@@ -645,7 +660,7 @@ namespace MyGui
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error sending message to webview: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error sending message to webview: {messageId} {messageType} {ex.Message}");
             }
         }
     }

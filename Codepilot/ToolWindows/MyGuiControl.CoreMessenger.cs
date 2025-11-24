@@ -365,11 +365,8 @@ namespace MyGui
                             dir = message.Data.ToString();
                         } 
                         
-                        Debug.WriteLine($"dir: {dir}");
                         var files = Directory.GetFiles(dir).Select(f => new[] { Path.GetFileName(f), "file" });
-                        Debug.WriteLine($"files: {files}");
                         var dirs = Directory.GetDirectories(dir).Select(d => new[] { Path.GetFileName(d), "directory" });
-                        Debug.WriteLine($"dirs: {dirs}");
                         var response = files.Concat(dirs).ToArray();
                         SendPureResponseToCore(message.MessageType, response, message.MessageId);
                     }
@@ -562,9 +559,13 @@ namespace MyGui
                     // Если есть ожидающий колбек, вызываем его
                     else if (_pendingCallbacks.TryGetValue(message.MessageId, out var callback))
                     {
-                        Debug.WriteLine($"message.MessageId {message.MessageId}");
+                        Debug.WriteLine($"message.MessageId {message.MessageId} {message.MessageType}");
                         callback(message.Data);
-                        _pendingCallbacks.Remove(message.MessageId);
+                        if (message.Data is Newtonsoft.Json.Linq.JObject jObject && jObject["done"] != null && jObject["done"].ToString() == "true")
+                        {
+                            _pendingCallbacks.Remove(message.MessageId);
+                        }
+                        
                     }
                     else
                     {
