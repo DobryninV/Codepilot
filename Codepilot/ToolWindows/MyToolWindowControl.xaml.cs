@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using Codepilot.ToolWindows;
+using MyGui;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace Codepilot
@@ -10,9 +12,23 @@ namespace Codepilot
             InitializeComponent();
         }
 
-        private void button1_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Получение GUI контрола
+        /// </summary>
+        public MyGuiControl GuiControl => guiControl;
+
+        /// <summary>
+        /// Получение сервиса автодополнения
+        /// </summary>
+        public AutocompleteService GetAutocompleteService()
         {
-            VS.MessageBox.Show("Codepilot", "Button clicked");
+            // Получаем приватное поле _autocompleteService через рефлексию
+            var autocompleteServiceField = guiControl.GetType().GetField("_autocompleteService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (autocompleteServiceField != null)
+            {
+                return autocompleteServiceField.GetValue(guiControl) as AutocompleteService;
+            }
+            return null;
         }
     }
 }

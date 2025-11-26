@@ -6,6 +6,10 @@
   <Include href="KnownImageIds.vsct"/>
   <Include href="VSGlobals.vsct"/>
 
+  <KeyBindings>
+    <KeyBinding guid="AutocompleteCommandSet" id="AutocompleteCommandId" editor="guidVSStd97" key1="Tab" mod1="Control" />
+  </KeyBindings>
+
   <Commands package="Codepilot">
     <!--This section defines the elements the user can interact with, like a menu command or a button or combo box in a toolbar. -->
     <Buttons>
@@ -18,12 +22,28 @@
           <LocCanonicalName>.View.MyToolWindow</LocCanonicalName>
         </Strings>
       </Button>
+      
+      <Button guid="AutocompleteCommandSet" id="AutocompleteCommandId" priority="0x0100" type="Button">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_EDIT_INTELLISENSE"/>
+        <Icon guid="ImageCatalogGuid" id="Intellisense" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <Strings>
+          <ButtonText>Trigger Autocomplete</ButtonText>
+          <LocCanonicalName>.Edit.TriggerAutocomplete</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
   <Symbols>
     <GuidSymbol name="Codepilot" value="{94bf10a9-8dd9-415e-9e4a-5fd167b61b2c}">
       <IDSymbol name="MyCommand" value="0x0100" />
+    </GuidSymbol>
+    
+    <GuidSymbol name="AutocompleteCommandSet" value="{c8f5bc35-5d92-4c5d-a292-85a2d658a8f7}">
+      <IDSymbol name="AutocompleteCommandId" value="0x0100" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

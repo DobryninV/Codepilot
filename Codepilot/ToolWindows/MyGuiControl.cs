@@ -1,4 +1,5 @@
 ﻿
+using Codepilot.ToolWindows;
 using EnvDTE;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -9,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows.Controls;
+using System.Windows.Input;
 using UiCodePilot.UI;
 using static MyGui.MyGuiControl;
 
@@ -23,6 +25,7 @@ namespace MyGui
         private WebView _webViewHandler;
         private bool _isInitialized;
         private CoreMessenger _coreMessenger;
+        private AutocompleteService _autocompleteService;
 
         public MyGuiControl()
         {
@@ -40,6 +43,10 @@ namespace MyGui
             {
                 // Создаем экземпляр CoreMessenger для обмена сообщениями с Core
                 _coreMessenger = new CoreMessenger();
+                
+                // Инициализируем сервис автодополнения
+                _autocompleteService = new AutocompleteService(_coreMessenger);
+                
                 Debug.WriteLine("Core initialized");
             }
             catch (Exception ex)
@@ -208,6 +215,8 @@ namespace MyGui
                 case "autocomplete/complete":
                 case "autocomplete/cancel":
                 case "autocomplete/accept":
+                    HandleAutocompleteMessage(message);
+                    break;
                 case "tts/kill":
                 case "llm/complete":
                 case "llm/streamChat":
@@ -548,6 +557,45 @@ namespace MyGui
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error handling config/getSerializedProfileInfo: {ex.Message}");
+                SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
+            }
+        }
+
+        /// <summary>
+        /// Обработка сообщений автодополнения
+        /// </summary>
+        /// <param name="message">Сообщение</param>
+        private void HandleAutocompleteMessage(Message message)
+        {
+            try
+            {
+                if (_autocompleteService != null)
+                {
+                    switch (message.MessageType)
+                    {
+                        case "autocomplete/complete":
+                            _autocompleteService.TriggerCompletion();
+                            SendToWebview(message.MessageType, new { status = "success" }, message.MessageId);
+                            break;
+                        case "autocomplete/cancel":
+                            _autocompleteService.CancelCompletion();
+                            SendToWebview(message.MessageType, new { status = "success" }, message.MessageId);
+                            break;
+                        case "autocomplete/accept":
+                            _autocompleteService.AcceptCompletion();
+                            SendToWebview(message.MessageType, new { status = "success" }, message.MessageId);
+                            break;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("Autocomplete service not initialized");
+                    SendToWebview(message.MessageType, new { error = "Autocomplete service not initialized" }, message.MessageId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling autocomplete message: {ex.Message}");
                 SendToWebview(message.MessageType, new { error = ex.Message }, message.MessageId);
             }
         }
