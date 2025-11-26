@@ -59,6 +59,7 @@
     <Compile Include="ToolWindows\Ui.cs" />
     <Compile Include="ToolWindows\AutocompleteService.cs" />
     <Compile Include="ToolWindows\MyToolWindowControl.xaml.cs" />
+    <Compile Include="ToolWindows\EditorEventHandler.cs" />
     <Compile Include="VSCommandTable.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

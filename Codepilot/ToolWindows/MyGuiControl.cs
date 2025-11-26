@@ -26,6 +26,7 @@ namespace MyGui
         private bool _isInitialized;
         private CoreMessenger _coreMessenger;
         private AutocompleteService _autocompleteService;
+        private EditorEventHandler _editorEventHandler;
 
         public MyGuiControl()
         {
@@ -46,6 +47,9 @@ namespace MyGui
                 
                 // Инициализируем сервис автодополнения
                 _autocompleteService = new AutocompleteService(_coreMessenger);
+                
+                // Инициализируем обработчик событий редактора
+                _editorEventHandler = new EditorEventHandler(_autocompleteService);
                 
                 Debug.WriteLine("Core initialized");
             }
