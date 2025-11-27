@@ -19,6 +19,27 @@ namespace Codepilot
             await this.RegisterCommandsAsync();
 
             this.RegisterToolWindows();
+            
+            // Инициализируем сервис автодополнения
+            await InitializeAutocompleteServiceAsync();
+        }
+        
+        /// <summary>
+        /// Инициализация сервиса автодополнения
+        /// </summary>
+        private async Task InitializeAutocompleteServiceAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            try
+            {
+                // Создаем экземпляр сервиса автодополнения
+                var autocompleteService = Codepilot.ToolWindows.AutocompleteService.Instance;
+                System.Diagnostics.Debug.WriteLine("CodepilotPackage: Сервис автодополнения инициализирован");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CodepilotPackage: Ошибка при инициализации сервиса автодополнения: {ex.Message}");
+            }
         }
     }
 }
